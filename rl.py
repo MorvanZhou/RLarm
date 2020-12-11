@@ -4,8 +4,8 @@ import numpy as np
 
 
 class DDPG(keras.Model):
-    def __init__(self, a_dim, s_dim, a_bound, batch_size=16, tau=0.01, gamma=0.98,
-                 lr=0.0002, memory_capacity=3000, soft_replace=False):
+    def __init__(self, a_dim, s_dim, a_bound, batch_size=32, tau=0.01, gamma=0.9,
+                 lr=0.0001, memory_capacity=8000, soft_replace=False):
         super().__init__()
         self.batch_size = batch_size
         self.tau = tau   # soft replacement
@@ -17,7 +17,8 @@ class DDPG(keras.Model):
         self.pointer = 0
         self.memory_full = False
         self._soft_replace = soft_replace
-        self.replace_counter = 0
+        self.a_replace_counter = 0
+        self.c_replace_counter = 0
 
         self.a_dim, self.s_dim, self.a_bound = a_dim, s_dim, a_bound[1]
 
@@ -28,17 +29,18 @@ class DDPG(keras.Model):
         self.critic = self._build_critic(s, trainable=True, name="d/eval")
         self.critic_ = self._build_critic(s_, trainable=False, name="d/target")
 
-        self.opt = keras.optimizers.Adam(self.lr, 0, 0.95)
+        self.opt = keras.optimizers.Adam(self.lr, 0.5, 0.9)
         self.mse = keras.losses.MeanSquaredError()
 
     def _build_actor(self, s, trainable, name):
-        x = keras.layers.Dense(200, trainable=trainable)(s)
-        # x = keras.layers.BatchNormalization(trainable=trainable)(x)
+        x = keras.layers.Dense(self.s_dim * 50, trainable=trainable)(s)
+        x = keras.layers.BatchNormalization(trainable=trainable)(x)
         x = keras.layers.LeakyReLU()(x)
-        x = keras.layers.Dense(128, trainable=trainable)(x)
+        x = keras.layers.Dense(self.s_dim * 50, trainable=trainable)(x)
         # x = keras.layers.BatchNormalization(trainable=trainable)(x)
         x = keras.layers.LeakyReLU()(x)
         x = keras.layers.Dense(self.a_dim, trainable=trainable)(x)
+        # x = keras.layers.BatchNormalization(trainable=trainable)(x)
         a = self.a_bound * tf.math.tanh(x)
         model = keras.Model(s, a, name=name)
         model.summary()
@@ -47,10 +49,10 @@ class DDPG(keras.Model):
     def _build_critic(self, s, trainable, name):
         a = keras.Input(shape=(self.a_dim,))
         x = tf.concat([
-            keras.layers.Dense(64, trainable=trainable, activation="relu", use_bias=False)(s),
-            keras.layers.Dense(32, trainable=trainable, activation="relu", use_bias=False)(a)], axis=1)
-        # x = keras.layers.BatchNormalization(trainable=trainable)(x)
-        x = keras.layers.Dense(200, trainable=trainable)(x)
+            keras.layers.Dense(self.s_dim * 50, trainable=trainable, activation="relu", use_bias=False)(s),
+            keras.layers.Dense(self.a_dim * 50, trainable=trainable, activation="relu", use_bias=False)(a)], axis=1)
+        x = keras.layers.BatchNormalization(trainable=trainable)(x)
+        x = keras.layers.Dense(self.s_dim * 50, trainable=trainable)(x)
         # x = keras.layers.BatchNormalization(trainable=trainable)(x)
         x = keras.layers.LeakyReLU()(x)
         q = keras.layers.Dense(1, trainable=trainable)(x)
@@ -68,15 +70,18 @@ class DDPG(keras.Model):
                 for i in range(len(lc.weights)):
                     lc_.weights[i] = (1 - self.tau) * lc_.weights[i] + self.tau * lc.weights[i]
         else:
-            self.replace_counter += 1
-            if self.replace_counter % 300:
+            self.a_replace_counter += 1
+            self.c_replace_counter += 1
+            if self.a_replace_counter % 1000 == 0:
                 for la, la_ in zip(self.actor.layers, self.actor_.layers):
                     for i in range(len(la.weights)):
                         la_.weights[i] = la.weights[i]
+                self.a_replace_counter = 0
+            if self.c_replace_counter % 1100 == 0:
                 for lc, lc_ in zip(self.critic.layers, self.critic_.layers):
                     for i in range(len(lc.weights)):
                         lc_.weights[i] = lc.weights[i]
-                self.replace_counter = 0
+                self.c_replace_counter = 0
 
     def act(self, s):
         if s.ndim < 2:
@@ -110,6 +115,7 @@ class DDPG(keras.Model):
             critic_loss = self.mse(q_, q)
         grads = tape.gradient(critic_loss, self.critic.trainable_variables)
         self.opt.apply_gradients(zip(grads, self.critic.trainable_variables))
+        return actor_loss.numpy(), critic_loss.numpy()
 
     def store_transition(self, s, a, r, s_):
         if s.ndim == 1:

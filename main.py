@@ -24,7 +24,7 @@ def set_soft_gpu(yes):
 
 def train():
     # start training
-    var = 3
+    var = 2
     min_var = 0.01
     for ep in range(PARAMS["max_ep"]):
         s = env.reset()
@@ -39,7 +39,7 @@ def train():
             ep_r += r
             aloss, closs = 0, 0
             if rl.memory_full:
-                var = max(var * 0.9998, min_var)
+                var = max(var * 0.99992, min_var)
                 aloss, closs = rl.learn()
 
             s = s_
@@ -73,16 +73,16 @@ if __name__ == "__main__":
 
     set_soft_gpu(True)
     if args.arms == 2:
-        PARAMS = {"training": not args.human, "n_arms": 2, "max_ep": 501, "max_step": 150,
-                  "soft_replace": True, "random_target": True, "tau": 0.01, "gamma": 0.9, "lr": 0.0001,
+        PARAMS = {"training": not args.human, "n_arms": 2, "max_ep": 701, "max_step": 120,
+                  "soft_replace": True, "random_target": True, "tau": 0.01, "gamma": 0.95, "lr": 0.0001,
                   "memory_capacity": 9000}
     elif args.arms == 3:
-        PARAMS = {"training": not args.human, "n_arms": 3, "max_ep": 1001, "max_step": 200,
-                  "soft_replace": True, "random_target": True, "tau": 0.01, "gamma": 0.8, "lr": 0.0001,
+        PARAMS = {"training": not args.human, "n_arms": 3, "max_ep": 1001, "max_step": 120,
+                  "soft_replace": True, "random_target": True, "tau": 0.01, "gamma": 0.95, "lr": 0.0001,
                   "memory_capacity": 9000}
     else:
-        PARAMS = {"training": not args.human, "n_arms": args.arms, "max_ep": 1001, "max_step": 200,
-                  "soft_replace": True, "random_target": True, "tau": 0.01, "gamma": 0.8, "lr": 0.0001,
+        PARAMS = {"training": not args.human, "n_arms": args.arms, "max_ep": 1001, "max_step": 120,
+                  "soft_replace": True, "random_target": True, "tau": 0.01, "gamma": 0.95, "lr": 0.0001,
                   "memory_capacity": 9000}
 
     # set env

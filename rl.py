@@ -34,7 +34,7 @@ class DDPG(keras.Model):
 
     def _build_actor(self, s, trainable, name):
         x = keras.layers.Dense(self.s_dim * 50, trainable=trainable)(s)
-        x = keras.layers.BatchNormalization(trainable=trainable)(x)
+        # x = keras.layers.BatchNormalization(trainable=trainable)(x)
         x = keras.layers.LeakyReLU()(x)
         x = keras.layers.Dense(self.s_dim * 50, trainable=trainable)(x)
         # x = keras.layers.BatchNormalization(trainable=trainable)(x)
@@ -51,7 +51,7 @@ class DDPG(keras.Model):
         x = tf.concat([
             keras.layers.Dense(self.s_dim * 50, trainable=trainable, activation="relu", use_bias=False)(s),
             keras.layers.Dense(self.a_dim * 50, trainable=trainable, activation="relu", use_bias=False)(a)], axis=1)
-        x = keras.layers.BatchNormalization(trainable=trainable)(x)
+        # x = keras.layers.BatchNormalization(trainable=trainable)(x)
         x = keras.layers.Dense(self.s_dim * 50, trainable=trainable)(x)
         # x = keras.layers.BatchNormalization(trainable=trainable)(x)
         x = keras.layers.LeakyReLU()(x)

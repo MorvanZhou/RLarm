@@ -96,11 +96,11 @@ class ArmEnv(object):
         if action.ndim > 1:
             action = np.squeeze(action, axis=0)
         done = False
-        action = np.clip(action, *self.action_bound)
+        _action = np.clip(action, *self.action_bound)
 
         for i in range(len(self.arms)):
             arm = self.arms[i]
-            arm.local_angle = (arm.local_angle + action[i] * self.dt) % (np.pi * 2)
+            arm.local_angle = (arm.local_angle + _action[i] * self.dt) % (np.pi * 2)
 
         s, r = self._state_reward()
 
@@ -111,7 +111,7 @@ class ArmEnv(object):
         ) and (self.goal_pos[1] - goal_half_l < shifted_last_pos[1] < self.goal_pos[1] + goal_half_l):
             r += 1.
             self.on_goal += 1
-            if self.on_goal > 40:
+            if self.on_goal > 30:
                 done = True
         else:
             self.on_goal = 0

@@ -30,8 +30,8 @@ def train():
         s = env.reset()
         ep_r = 0.
         for j in range(PARAMS["max_step"]):
-            if rl.memory_full:
-                env.render()
+            # if rl.memory_full:
+            env.render()
             a = rl.act(s)
             a = np.clip(np.random.normal(a, var), *env.action_bound)
             s_, r, done = env.step(a)
@@ -77,11 +77,11 @@ if __name__ == "__main__":
                   "soft_replace": True, "random_target": True, "tau": 0.002, "gamma": 0.9, "lr": 0.0001,
                   "memory_capacity": 9000}
     elif args.arms == 3:
-        PARAMS = {"training": not args.human, "n_arms": 3, "max_ep": 1001, "max_step": 100,
+        PARAMS = {"training": not args.human, "n_arms": 3, "max_ep": 1201, "max_step": 100,
                   "soft_replace": True, "random_target": True, "tau": 0.002, "gamma": 0.9, "lr": 0.0001,
                   "memory_capacity": 9000}
     else:
-        PARAMS = {"training": not args.human, "n_arms": args.arms, "max_ep": 1001, "max_step": 100,
+        PARAMS = {"training": not args.human, "n_arms": args.arms, "max_ep": 1201, "max_step": 100,
                   "soft_replace": True, "random_target": True, "tau": 0.0002, "gamma": 0.9, "lr": 0.0001,
                   "memory_capacity": 9000}
 

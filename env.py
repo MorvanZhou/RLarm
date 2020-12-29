@@ -53,8 +53,9 @@ class ArmEnv(object):
     dt = .1    # refresh rate
     action_bound = [-2., 2.]
 
-    def __init__(self, n_arms=2, random_goal=False, on_mouse=False):
+    def __init__(self, n_arms=2, random_goal=False, on_mouse=False, fps=False):
         self.viewer = None
+        self.fps = fps
         self.viewer_width = 400
         self.viewer_height = 400
         assert n_arms > 0, ValueError
@@ -136,7 +137,7 @@ class ArmEnv(object):
     def render(self):
         if self.viewer is None:
             self.viewer = Viewer(self.arms, self.goal_pos, self.goal_length, self.on_mouse,
-                                 self.viewer_width, self.viewer_height)
+                                 self.viewer_width, self.viewer_height, fps=self.fps)
         self.viewer.render()
 
     def sample_action(self):
@@ -146,7 +147,7 @@ class ArmEnv(object):
 class Viewer(pyglet.window.Window):
     bar_thc = 5
 
-    def __init__(self, arms, goal_pos, goal_length, on_mouse=False, width=400, height=400):
+    def __init__(self, arms, goal_pos, goal_length, on_mouse=False, width=400, height=400, fps=False):
         # vsync=False to not use the monitor FPS, we can speed up training
         super(Viewer, self).__init__(width=width, height=height, resizable=False, caption='Arm', vsync=False)
         pyglet.gl.glClearColor(1, 1, 1, 1)
@@ -154,6 +155,7 @@ class Viewer(pyglet.window.Window):
         self.goal_pos = goal_pos
         self.goal_length = goal_length
         self.on_mouse = on_mouse
+        self.fps = fps
         self.center_coord = np.array([width/2, height/2])
 
         self.batch = pyglet.graphics.Batch()    # display whole batch at once
@@ -191,7 +193,8 @@ class Viewer(pyglet.window.Window):
     def on_draw(self):
         self.clear()
         self.batch.draw()
-        self.fps_display.draw()
+        if self.fps:
+            self.fps_display.draw()
 
     def on_mouse_motion(self, x, y, dx, dy):
         if self.on_mouse:

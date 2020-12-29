@@ -68,10 +68,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--arms", default=2, type=int)
+    parser.add_argument("-fps", "--fps", action="store_true", default=False)
     parser.add_argument("--human", action="store_true", default=False)
     args = parser.parse_args()
 
     set_soft_gpu(True)
+    assert args.arms >= 2, ValueError("arms most >= 2")
     if args.arms == 2:
         PARAMS = {"training": not args.human, "n_arms": 2, "max_ep": 701, "max_step": 100,
                   "soft_replace": True, "random_target": True, "tau": 0.002, "gamma": 0.9, "lr": 0.0001,
@@ -83,7 +85,7 @@ if __name__ == "__main__":
 
     # set env
     print(PARAMS)
-    env = ArmEnv(n_arms=PARAMS["n_arms"], random_goal=PARAMS["random_target"], on_mouse=False if PARAMS["training"] else True)
+    env = ArmEnv(n_arms=PARAMS["n_arms"], random_goal=PARAMS["random_target"], on_mouse=False if PARAMS["training"] else True, fps=args.fps)
     s_dim = env.state_dim
     a_dim = env.action_dim
     a_bound = env.action_bound

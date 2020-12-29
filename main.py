@@ -76,13 +76,9 @@ if __name__ == "__main__":
         PARAMS = {"training": not args.human, "n_arms": 2, "max_ep": 701, "max_step": 100,
                   "soft_replace": True, "random_target": True, "tau": 0.002, "gamma": 0.9, "lr": 0.0001,
                   "memory_capacity": 9000}
-    elif args.arms == 3:
-        PARAMS = {"training": not args.human, "n_arms": 3, "max_ep": 1201, "max_step": 100,
-                  "soft_replace": True, "random_target": True, "tau": 0.002, "gamma": 0.9, "lr": 0.0001,
-                  "memory_capacity": 9000}
     else:
         PARAMS = {"training": not args.human, "n_arms": args.arms, "max_ep": 1201, "max_step": 100,
-                  "soft_replace": True, "random_target": True, "tau": 0.0002, "gamma": 0.9, "lr": 0.0001,
+                  "soft_replace": True, "random_target": True, "tau": 0.001, "gamma": 0.9, "lr": 0.0001,
                   "memory_capacity": 9000}
 
     # set env

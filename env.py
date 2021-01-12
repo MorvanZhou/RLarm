@@ -1,5 +1,9 @@
 import numpy as np
 import pyglet
+import sys
+from base import BaseViewer
+
+KILLED = False
 
 
 class Arm:
@@ -53,9 +57,10 @@ class ArmEnv(object):
     dt = .1    # refresh rate
     action_bound = [-2., 2.]
 
-    def __init__(self, n_arms=2, random_goal=False, on_mouse=False, fps=False):
+    def __init__(self, n_arms=2, random_goal=False, on_mouse=False, show_fps=False, fps=-1):
         self.viewer = None
         self.fps = fps
+        self.show_fps = show_fps
         self.viewer_width = 400
         self.viewer_height = 400
         assert n_arms > 0, ValueError
@@ -72,6 +77,11 @@ class ArmEnv(object):
         self.action_dim = n_arms
 
     def _state_reward(self):
+        """
+
+        :return: state, including the normalized distance and angle for each join to the goal,
+        if the end of arm touches the goal. The reward is the l2 distance to the goal.
+        """
         dxdy_ = np.empty((len(self.arms), 2), dtype=np.float32)
         for i in range(len(self.arms)):
             theta = self.arms[i].global_angle - np.pi / 2
@@ -93,7 +103,11 @@ class ArmEnv(object):
         r = -dist_norm[-1]/5
         return s, r
 
-    def step(self, action):
+    def step(self, action=None):
+        if KILLED:
+            sys.exit()
+        if action is None:
+            action = np.zeros([1, self.action_dim], dtype=np.float32)
         if action.ndim > 1:
             action = np.squeeze(action, axis=0)
         done = False
@@ -112,7 +126,7 @@ class ArmEnv(object):
         ) and (self.goal_pos[1] - goal_half_l < shifted_last_pos[1] < self.goal_pos[1] + goal_half_l):
             r += 1.
             self.on_goal += 1
-            if self.on_goal > 30:
+            if self.on_goal > 50:
                 done = True
         else:
             self.on_goal = 0
@@ -137,25 +151,31 @@ class ArmEnv(object):
     def render(self):
         if self.viewer is None:
             self.viewer = Viewer(self.arms, self.goal_pos, self.goal_length, self.on_mouse,
-                                 self.viewer_width, self.viewer_height, fps=self.fps)
-        self.viewer.render()
+                                 self.viewer_width, self.viewer_height, dt=self.dt,
+                                 show_fps=self.show_fps, fps=self.fps)
+        self.viewer.render(self.on_goal)
 
     def sample_action(self):
-        return np.random.rand(len(self.arms))-0.5    # two radians
+        return (np.random.rand(self.action_dim) - 0.5) * self.action_bound[1]
+
+    def close(self):
+        try:
+            self.viewer.close()
+        except Exception:
+            pass
 
 
-class Viewer(pyglet.window.Window):
+class Viewer(BaseViewer):
     bar_thc = 5
 
-    def __init__(self, arms, goal_pos, goal_length, on_mouse=False, width=400, height=400, fps=False):
+    def __init__(self, arms, goal_pos, goal_length, on_mouse=False, width=400, height=400, dt=0.1, show_fps=False, fps=-1):
         # vsync=False to not use the monitor FPS, we can speed up training
-        super(Viewer, self).__init__(width=width, height=height, resizable=False, caption='Arm', vsync=False)
-        pyglet.gl.glClearColor(1, 1, 1, 1)
+        super(Viewer, self).__init__(
+            width=width, height=height, caption="Arm", on_mouse=on_mouse, show_fps=show_fps, fps=fps)
         self.arms = arms
         self.goal_pos = goal_pos
         self.goal_length = goal_length
-        self.on_mouse = on_mouse
-        self.fps = fps
+        self.dt = dt
         self.center_coord = np.array([width/2, height/2])
 
         self.batch = pyglet.graphics.Batch()    # display whole batch at once
@@ -172,8 +192,6 @@ class Viewer(pyglet.window.Window):
             ('c3B', (249, 86, 86) * 4,)  # color
         ) for _ in range(len(self.arms))]
 
-        self.fps_display = pyglet.window.FPSDisplay(window=self)
-
     def _goal_vec(self):
         hl = self.goal_length / 2
         x, y = self.goal_pos[0], self.goal_pos[1]
@@ -183,32 +201,47 @@ class Viewer(pyglet.window.Window):
             x + hl, y + hl,
             x + hl, y - hl]
 
-    def render(self, dt=None):
-        self._update()
-        self.switch_to()
-        self.dispatch_events()
-        self.dispatch_event('on_draw')
-        self.flip()
-
-    def on_draw(self):
-        self.clear()
-        self.batch.draw()
-        if self.fps:
-            self.fps_display.draw()
+    def move_arm(self, n, rot):
+        if n+1 > len(self.arms):
+            return
+        arm = self.arms[n]
+        arm.local_angle = (arm.local_angle + rot * self.dt) % (np.pi * 2)
 
     def on_mouse_motion(self, x, y, dx, dy):
         if self.on_mouse:
             self.goal_pos[0], self.goal_pos[1] = x, y
 
-    def _update(self):
+    def _detect_key_event(self):
+        # detect keyboard
+        if self.keyboard[pyglet.window.key.ESCAPE]:
+            self.close()
+            pyglet.app.exit()
+            global KILLED
+            KILLED = True
+        elif self.keyboard[pyglet.window.key._1]:
+            self.move_arm(0, 0.2)
+        elif self.keyboard[pyglet.window.key.Q]:
+            self.move_arm(0, -.2)
+        elif self.keyboard[pyglet.window.key._2]:
+            self.move_arm(1, .2)
+        elif self.keyboard[pyglet.window.key.W]:
+            self.move_arm(1, -.2)
+        elif self.keyboard[pyglet.window.key._3]:
+            self.move_arm(2, .2)
+        elif self.keyboard[pyglet.window.key.E]:
+            self.move_arm(2, -.2)
+
+    def update(self, on_goal=0):
+        self._detect_key_event()
         shift = np.concatenate([self.center_coord for _ in range(4)])
         for arm, barm in zip(self.arms, self.barms):
             barm.vertices = arm.vertices() + shift
         self.goal.vertices = self._goal_vec()
+        self.goal.colors = (255, 153, 51) * 4 if on_goal > 0 else (86, 109, 249) * 4
 
 
 if __name__ == '__main__':
-    env = ArmEnv(n_arms=2, random_goal=False)
+    env = ArmEnv(n_arms=3, random_goal=False, on_mouse=True)
     env.reset()
     while True:
         env.render()

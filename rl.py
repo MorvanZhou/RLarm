@@ -4,8 +4,8 @@ import numpy as np
 
 
 class DDPG(keras.Model):
-    def __init__(self, a_dim, s_dim, a_bound, batch_size=32, tau=0.01, gamma=0.9,
-                 lr=0.0001, memory_capacity=8000, soft_replace=False):
+    def __init__(self, a_dim, s_dim, a_bound, batch_size=32, tau=0.002, gamma=0.8,
+                 lr=0.0001, memory_capacity=9000, soft_replace=True):
         super().__init__()
         self.batch_size = batch_size
         self.tau = tau   # soft replacement
@@ -43,7 +43,7 @@ class DDPG(keras.Model):
         # x = keras.layers.BatchNormalization(trainable=trainable)(x)
         a = self.a_bound * tf.math.tanh(x)
         model = keras.Model(s, a, name=name)
-        model.summary()
+        # model.summary()
         return model
 
     def _build_critic(self, s, trainable, name):
@@ -58,7 +58,7 @@ class DDPG(keras.Model):
         q = keras.layers.Dense(1, trainable=trainable)(x)
 
         model = keras.Model([s, a], q, name=name)
-        model.summary()
+        # model.summary()
         return model
 
     def param_replace(self):
@@ -90,7 +90,10 @@ class DDPG(keras.Model):
         return a
 
     def sample_memory(self):
-        indices = np.random.choice(self.memory_capacity, size=self.batch_size)
+        if self.memory_full:
+            indices = np.random.randint(0, self.memory_capacity, size=self.batch_size)
+        else:
+            indices = np.random.randint(0, self.pointer, size=self.batch_size)
         bt = self.memory[indices, :]
         bs = bt[:, :self.s_dim]
         ba = bt[:, self.s_dim: self.s_dim + self.a_dim]
